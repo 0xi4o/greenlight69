@@ -53,6 +53,8 @@ func main() {
 
 	cfg.db.dsn = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", username, password, host, dbName)
 
+	logger.Info("postgres dsn", "dsn", cfg.db.dsn)
+
 	flag.IntVar(&cfg.port, "port", 4000, "API Server Port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL maximum open connections")
