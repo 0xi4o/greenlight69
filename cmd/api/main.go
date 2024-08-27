@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/joho/godotenv"
+	"greenlight.i4o.dev/internal/data"
 	"net/http"
 	"os"
 	"time"
@@ -31,6 +32,7 @@ type config struct {
 type application struct {
 	config config
 	logger *log.Logger
+	models data.Models
 }
 
 func main() {
@@ -74,6 +76,7 @@ func main() {
 	app := &application{
 		config: cfg,
 		logger: logger,
+		models: data.NewModels(db),
 	}
 
 	srv := &http.Server{
