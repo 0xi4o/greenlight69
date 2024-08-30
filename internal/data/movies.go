@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"github.com/lib/pq"
 	"greenlight.i4o.dev/internal/validator"
 	"time"
@@ -149,28 +150,36 @@ func (m MovieModel) Delete(id int64) error {
 	return nil
 }
 
-func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, error) {
-	query := `
-		SELECT id, created_at, title, year, runtime, genres, version
+func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*Movie, Metadata, error) {
+	// TODO: this is totally valid but it triggers an error in goland because it sees it as a SQL query
+	query := fmt.Sprintf(`
+		SELECT count(*) OVER(), id, created_at, title, year, runtime, genres, version
 		FROM movies
-		ORDER BY id
-	`
+		WHERE (to_tsvector('english', title) @@ plainto_tsquery('english', $1) OR $1 = '')
+		AND (genres @> $2 OR $2 = '{}')
+		ORDER BY %s %s, id ASC
+		LIMIT $3 OFFSET $4
+	`, filters.sortColumn(), filters.sortDirection())
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	rows, err := m.DB.QueryContext(ctx, query)
+	args := []any{title, pq.Array(genres), filters.limit(), filters.offset()}
+
+	rows, err := m.DB.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
 	defer rows.Close()
 
+	totalRecords := 0
 	movies := []*Movie{}
 
 	for rows.Next() {
 		var movie Movie
 
 		err := rows.Scan(
+			&totalRecords,
 			&movie.ID,
 			&movie.CreatedAt,
 			&movie.Title,
@@ -180,15 +189,17 @@ func (m MovieModel) GetAll(title string, genres []string, filters Filters) ([]*M
 			&movie.Version,
 		)
 		if err != nil {
-			return nil, err
+			return nil, Metadata{}, err
 		}
 
 		movies = append(movies, &movie)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
 
-	return movies, nil
+	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+
+	return movies, metadata, nil
 }
