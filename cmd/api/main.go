@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"greenlight.i4o.dev/internal/data"
-	"net/http"
 	"os"
 	"time"
 
@@ -89,20 +88,11 @@ func main() {
 		models: data.NewModels(db),
 	}
 
-	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%d", cfg.port),
-		Handler:      app.routes(),
-		ErrorLog:     log.StandardLog(log.StandardLogOptions{ForceLevel: log.ErrorLevel}),
-		IdleTimeout:  time.Minute,
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+	err = app.serve()
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
 	}
-
-	logger.Info("starting server", "addr", cfg.port, "env", cfg.env)
-
-	err = srv.ListenAndServe()
-	logger.Error(err.Error())
-	os.Exit(1)
 }
 
 func openDB(cfg config) (*sql.DB, error) {
