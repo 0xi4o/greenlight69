@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"greenlight.i4o.dev/internal/data"
+	"greenlight.i4o.dev/internal/mailer"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -31,12 +33,20 @@ type config struct {
 		burst   int
 		enabled bool
 	}
+	smtp struct {
+		host     string
+		port     int
+		username string
+		password string
+		sender   string
+	}
 }
 
 type application struct {
 	config config
 	logger *log.Logger
 	models data.Models
+	mailer mailer.Mailer
 }
 
 func main() {
@@ -54,10 +64,16 @@ func main() {
 		dbName   = os.Getenv("DB_NAME")
 		username = os.Getenv("DB_USERNAME")
 		password = os.Getenv("DB_PASSWORD")
-		host     = os.Getenv("DB_HOST")
+		dbHost   = os.Getenv("DB_HOST")
 	)
 
-	cfg.db.dsn = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", username, password, host, dbName)
+	cfg.smtp.host = os.Getenv("SMTP_HOST")
+	cfg.smtp.port, _ = strconv.Atoi(os.Getenv("SMTP_PORT"))
+	cfg.smtp.username = os.Getenv("SMTP_USERNAME")
+	cfg.smtp.password = os.Getenv("SMTP_PASSWORD")
+	cfg.smtp.sender = os.Getenv("SMTP_SENDER")
+
+	cfg.db.dsn = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", username, password, dbHost, dbName)
 
 	logger.Info("postgres dsn", "dsn", cfg.db.dsn)
 
@@ -85,6 +101,7 @@ func main() {
 	app := &application{
 		config: cfg,
 		logger: logger,
+		mailer: mailer.New(cfg.smtp.host, cfg.smtp.port, cfg.smtp.username, cfg.smtp.password, cfg.smtp.sender),
 		models: data.NewModels(db),
 	}
 
