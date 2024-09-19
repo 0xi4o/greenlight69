@@ -10,6 +10,7 @@ import (
 	"greenlight.i4o.dev/internal/mailer"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -47,6 +48,7 @@ type application struct {
 	logger *log.Logger
 	models data.Models
 	mailer mailer.Mailer
+	wg     sync.WaitGroup
 }
 
 func main() {
