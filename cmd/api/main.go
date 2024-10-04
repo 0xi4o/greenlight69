@@ -6,6 +6,7 @@ import (
 	"expvar"
 	"flag"
 	"fmt"
+	"greenlight.i4o.dev/internal/vcs"
 	"os"
 	"runtime"
 	"strconv"
@@ -22,7 +23,9 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const version = "1.0.0"
+var (
+	version = vcs.Version()
+)
 
 type config struct {
 	env  string
@@ -69,22 +72,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	var (
-		dbName   = os.Getenv("DB_NAME")
-		username = os.Getenv("DB_USERNAME")
-		password = os.Getenv("DB_PASSWORD")
-		dbHost   = os.Getenv("DB_HOST")
-	)
-
 	cfg.smtp.host = os.Getenv("SMTP_HOST")
 	cfg.smtp.port, _ = strconv.Atoi(os.Getenv("SMTP_PORT"))
 	cfg.smtp.username = os.Getenv("SMTP_USERNAME")
 	cfg.smtp.password = os.Getenv("SMTP_PASSWORD")
 	cfg.smtp.sender = os.Getenv("SMTP_SENDER")
 
-	cfg.db.dsn = fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", username, password, dbHost, dbName)
-
-	logger.Info("postgres dsn", "dsn", cfg.db.dsn)
+	cfg.db.dsn = os.Getenv("DB_DSN")
 
 	flag.IntVar(&cfg.port, "port", 4000, "API Server Port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
@@ -101,7 +95,16 @@ func main() {
 		return nil
 	})
 
+	displayVersion := flag.Bool("version", false, "Display version and exit")
+
 	flag.Parse()
+
+	if *displayVersion {
+		fmt.Printf("Version:\t%s\n", version)
+		os.Exit(0)
+	}
+
+	logger.Info("connecting to postgres")
 
 	db, err := openDB(cfg)
 	if err != nil {
